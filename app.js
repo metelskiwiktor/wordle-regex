@@ -473,6 +473,8 @@ function initWordle() {
 
     grid.appendChild(rowEl);
   }
+
+  loadWordleState();
 }
 
 // Handles navigation and backspace (keydown is reliable for these on all platforms)
@@ -603,8 +605,28 @@ function focusWordleCell(r, c) {
 }
 
 function clearWordle() {
+  localStorage.removeItem('wordleState');
   initWordle();
   generateWordle();
+}
+
+function saveWordleState() {
+  try {
+    localStorage.setItem('wordleState', JSON.stringify(wordleState));
+  } catch(e) {}
+}
+
+function loadWordleState() {
+  try {
+    const saved = localStorage.getItem('wordleState');
+    if (!saved) return;
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed) || parsed.length !== W_ROWS) return;
+    wordleState = parsed;
+    for (let r = 0; r < W_ROWS; r++)
+      for (let c = 0; c < W_COLS; c++)
+        updateWordleCell(r, c);
+  } catch(e) {}
 }
 
 function generateWordle() {
@@ -644,6 +666,7 @@ function generateWordle() {
     currentWordleRegex = '';
     out.textContent = 'wypełnij siatkę...';
     out.classList.add('empty');
+    saveWordleState();
     return;
   }
 
@@ -681,6 +704,7 @@ function generateWordle() {
   currentWordleRegex = regex;
   out.textContent = regex;
   out.classList.remove('empty');
+  saveWordleState();
 }
 
 function copyWordleRegex() {
