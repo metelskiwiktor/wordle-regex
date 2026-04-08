@@ -315,7 +315,7 @@ function escHtml(s) {
 }
 
 // ── Tab switching ──────────────────────────────────────────
-const TAB_LABELS = { filters: 'filtr', pool: 'pula', wordle: 'wordle' };
+const TAB_LABELS = { wordle: 'wordle', filters: 'filtr', pool: 'pula' };
 
 function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -490,6 +490,7 @@ function handleWordleKey(e, r, c) {
     e.preventDefault();
     wordleState[r][c] = { letter: e.key.toUpperCase(), state: 'miss' };
     updateWordleCell(r, c);
+    applyKnownState(r, c);
     generateWordle();
     // advance to next cell
     if (c < W_COLS - 1) focusWordleCell(r, c + 1);
@@ -503,7 +504,64 @@ function cycleWordleState(r, c) {
   else if (s.state === 'yellow') s.state = 'green';
   else s.state = 'miss';
   updateWordleCell(r, c);
+  propagateWordleState(r, c);
   generateWordle();
+}
+
+// After marking a cell, push its state to matching letters in other rows
+function propagateWordleState(r, c) {
+  const { letter, state } = wordleState[r][c];
+  if (!letter || state === 'empty') return;
+
+  for (let or = 0; or < W_ROWS; or++) {
+    if (or === r) continue;
+    for (let oc = 0; oc < W_COLS; oc++) {
+      const cell = wordleState[or][oc];
+      if (cell.letter !== letter || cell.state === 'empty') continue;
+
+      if (state === 'green' && oc === c) {
+        // Same letter, same column → also green
+        cell.state = 'green';
+        updateWordleCell(or, oc);
+      } else if (state === 'yellow' && cell.state !== 'green') {
+        // Same letter anywhere → also yellow (don't override green)
+        cell.state = 'yellow';
+        updateWordleCell(or, oc);
+      } else if (state === 'miss' && cell.state === 'miss') {
+        // Keep miss in sync (already miss, nothing to change)
+      }
+    }
+  }
+}
+
+// When typing a new letter, apply already-known state for that letter
+function applyKnownState(r, c) {
+  const letter = wordleState[r][c].letter;
+  if (!letter) return;
+
+  // Check for known green at this exact column
+  for (let or = 0; or < W_ROWS; or++) {
+    if (or === r) continue;
+    const cell = wordleState[or][c];
+    if (cell.letter === letter && cell.state === 'green') {
+      wordleState[r][c].state = 'green';
+      updateWordleCell(r, c);
+      return;
+    }
+  }
+
+  // Check for known yellow anywhere
+  for (let or = 0; or < W_ROWS; or++) {
+    if (or === r) continue;
+    for (let oc = 0; oc < W_COLS; oc++) {
+      const cell = wordleState[or][oc];
+      if (cell.letter === letter && cell.state === 'yellow') {
+        wordleState[r][c].state = 'yellow';
+        updateWordleCell(r, c);
+        return;
+      }
+    }
+  }
 }
 
 function updateWordleCell(r, c) {
