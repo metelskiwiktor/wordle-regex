@@ -446,16 +446,25 @@ function initWordle() {
       cell.id = `wc-${r}-${c}`;
 
       const input = document.createElement('input');
-      input.maxLength = 2; // allow for overwrite detection
+      input.maxLength = 1;
       input.type = 'text';
       input.autocomplete = 'off';
       input.spellcheck = false;
+      input.inputMode = 'text';
 
-      input.addEventListener('keydown', (e) => handleWordleKey(e, r, c));
-      input.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        input.focus();
-        if (wordleState[r][c].letter) cycleWordleState(r, c);
+      // Navigation + backspace via keydown (reliable on all platforms)
+      input.addEventListener('keydown', (e) => handleWordleNav(e, r, c));
+
+      // Letter input via `input` event — fires reliably on mobile virtual keyboards
+      input.addEventListener('input', (e) => handleWordleInput(e, r, c));
+
+      // Color cycling via pointerdown — works for both mouse and touch
+      input.addEventListener('pointerdown', (e) => {
+        if (wordleState[r][c].letter) {
+          e.preventDefault(); // prevent text selection; focus managed manually
+          input.focus();
+          cycleWordleState(r, c);
+        }
       });
 
       cell.appendChild(input);
@@ -466,7 +475,8 @@ function initWordle() {
   }
 }
 
-function handleWordleKey(e, r, c) {
+// Handles navigation and backspace (keydown is reliable for these on all platforms)
+function handleWordleNav(e, r, c) {
   if (e.key === 'Backspace') {
     e.preventDefault();
     if (wordleState[r][c].letter) {
@@ -480,22 +490,37 @@ function handleWordleKey(e, r, c) {
     generateWordle();
     return;
   }
-
-  if (e.key === 'ArrowLeft') { e.preventDefault(); focusWordleCell(r, c - 1); return; }
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); focusWordleCell(r, c - 1); return; }
   if (e.key === 'ArrowRight') { e.preventDefault(); focusWordleCell(r, c + 1); return; }
-  if (e.key === 'ArrowUp') { e.preventDefault(); focusWordleCell(r - 1, c); return; }
-  if (e.key === 'ArrowDown') { e.preventDefault(); focusWordleCell(r + 1, c); return; }
+  if (e.key === 'ArrowUp')    { e.preventDefault(); focusWordleCell(r - 1, c); return; }
+  if (e.key === 'ArrowDown')  { e.preventDefault(); focusWordleCell(r + 1, c); return; }
+}
 
-  if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
-    e.preventDefault();
-    wordleState[r][c] = { letter: e.key.toUpperCase(), state: 'miss' };
+// Handles letter input — fires reliably on mobile virtual keyboards
+function handleWordleInput(e, r, c) {
+  if (e.inputType === 'deleteContentBackward') {
+    // Backspace on mobile (keydown may not fire) — handled here as fallback
+    wordleState[r][c] = { letter: '', state: 'empty' };
     updateWordleCell(r, c);
-    applyKnownState(r, c);
+    if (c > 0) focusWordleCell(r, c - 1);
     generateWordle();
-    // advance to next cell
-    if (c < W_COLS - 1) focusWordleCell(r, c + 1);
-    else if (r < W_ROWS - 1) focusWordleCell(r + 1, 0);
+    return;
   }
+
+  const raw = (e.data || '').replace(/[^a-zA-Z]/g, '');
+  if (!raw) {
+    // Non-letter or composition — reset input to current state
+    updateWordleCell(r, c);
+    return;
+  }
+
+  const letter = raw[raw.length - 1].toUpperCase(); // take last char if multiple slipped through
+  wordleState[r][c] = { letter, state: 'miss' };
+  updateWordleCell(r, c);
+  applyKnownState(r, c);
+  generateWordle();
+  if (c < W_COLS - 1) focusWordleCell(r, c + 1);
+  else if (r < W_ROWS - 1) focusWordleCell(r + 1, 0);
 }
 
 function cycleWordleState(r, c) {
