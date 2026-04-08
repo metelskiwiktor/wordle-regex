@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('lenExact').value = 5;
   generate();
   initWordle();
-  generateWordle();
 });
 
 function addExcludePosition() {
@@ -475,7 +474,7 @@ function initWordle() {
     grid.appendChild(rowEl);
   }
 
-  loadWordleState();
+  if (loadWordleState()) generateWordleDebug();
 }
 
 // Handles navigation and backspace (keydown is reliable for these on all platforms)
@@ -491,6 +490,7 @@ function handleWordleNav(e, r, c) {
       focusWordleCell(r, c - 1);
     }
     generateWordle();
+    saveWordleState();
     return;
   }
   if (e.key === 'ArrowLeft')  { e.preventDefault(); focusWordleCell(r, c - 1); return; }
@@ -507,6 +507,7 @@ function handleWordleInput(e, r, c) {
     updateWordleCell(r, c);
     if (c > 0) focusWordleCell(r, c - 1);
     generateWordle();
+    saveWordleState();
     return;
   }
 
@@ -522,6 +523,7 @@ function handleWordleInput(e, r, c) {
   updateWordleCell(r, c);
   applyKnownState(r, c);
   generateWordle();
+  saveWordleState();
   if (c < W_COLS - 1) focusWordleCell(r, c + 1);
   else if (r < W_ROWS - 1) focusWordleCell(r + 1, 0);
 }
@@ -534,6 +536,7 @@ function cycleWordleState(r, c) {
   updateWordleCell(r, c);
   propagateWordleState(r, c);
   generateWordle();
+  saveWordleState();
 }
 
 // After marking a cell, push its state to matching letters in other rows
@@ -620,15 +623,26 @@ function saveWordleState() {
 function loadWordleState() {
   try {
     const saved = localStorage.getItem('wordleState');
-    if (!saved) return;
+    console.log('[wordle] saved raw:', saved ? saved.slice(0, 80) : 'null');
+    if (!saved) return false;
     const parsed = JSON.parse(saved);
-    if (!Array.isArray(parsed) || parsed.length !== W_ROWS) return;
+    console.log('[wordle] parsed ok, rows:', Array.isArray(parsed) ? parsed.length : 'not array');
+    if (!Array.isArray(parsed) || parsed.length !== W_ROWS) return false;
     wordleState = parsed;
     for (let r = 0; r < W_ROWS; r++)
       for (let c = 0; c < W_COLS; c++)
         updateWordleCell(r, c);
-    setTimeout(generateWordle, 0);
-  } catch(e) {}
+    console.log('[wordle] state loaded, sample[0][0]:', JSON.stringify(wordleState[0][0]));
+    return true;
+  } catch(e) {
+    console.log('[wordle] loadWordleState error:', e);
+    return false;
+  }
+}
+
+function generateWordleDebug() {
+  console.log('[wordle] generateWordle called, wordleState[0][0]:', JSON.stringify(wordleState[0][0]));
+  generateWordle();
 }
 
 function generateWordle() {
@@ -668,7 +682,6 @@ function generateWordle() {
     currentWordleRegex = '';
     out.textContent = 'wypełnij siatkę...';
     out.classList.add('empty');
-    saveWordleState();
     return;
   }
 
@@ -706,7 +719,6 @@ function generateWordle() {
   currentWordleRegex = regex;
   out.textContent = regex;
   out.classList.remove('empty');
-  saveWordleState();
 }
 
 function copyWordleRegex() {
