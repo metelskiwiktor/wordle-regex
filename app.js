@@ -627,6 +627,7 @@ function loadWordleState() {
     for (let r = 0; r < W_ROWS; r++)
       for (let c = 0; c < W_COLS; c++)
         updateWordleCell(r, c);
+    setTimeout(generateWordle, 0);
   } catch(e) {}
 }
 
