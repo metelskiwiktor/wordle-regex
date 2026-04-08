@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('lenExact').value = 5;
   generate();
   initWordle();
+  generateWordle();
 });
 
 function addExcludePosition() {
